@@ -1,0 +1,121 @@
+# ==========================================
+# 1. NODE.JS / JAVASCRIPT CORREDO COMPLETO
+# ==========================================
+# Dipendenze (MAI caricare node_modules)
+node_modules/
+/node_modules
+
+# Cartelle di compilazione e build (React, Vue, Vite, Angular, Next, Nuxt, ecc.)
+dist/
+build/
+out/
+.next/
+.nuxt/
+.output/
+.cache/
+.parcel-cache/
+.turbo/
+
+# Log di errore e diagnostica dei gestori pacchetti
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# File diagnostici di Node
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Runtime locali e configurazioni di strumenti
+.pnpm-store/
+.npm/
+.yarn/berry/
+.yarn/cache/
+.yarn/build-state.json
+.yarn/install-state.gz
+.eslintcache
+.stylelintcache
+.prettiercache
+tsbuildinfo
+*.tsbuildinfo
+
+# Coverage dei test (Jest, Vitest, Cypress)
+coverage/
+.nyc_output/
+.cypress-cache/
+
+# ==========================================
+# 2. FILE DI CONFIGURAZIONE AMBIENTE (SICUREZZA)
+# ==========================================
+# Contengono chiavi segrete, password e database locali
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+*.pem
+*.key
+*.cert
+credentials.json
+*.db
+*.sqlite
+
+# ==========================================
+# 3. EDITOR DI TESTO E IDE (VS CODE, WEBSTORM, ECC.)
+# ==========================================
+# VS Code (mantiene i tuoi file personali, ignora la cartella tranne i file utili)
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.history/
+
+# Suite JetBrains (WebStorm, IntelliJ)
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# ==========================================
+# 4. FILE IMMONDIZIA DEI SISTEMI OPERATIVI
+# ==========================================
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+[Dd]ownloads/
+$RECYCLE.BIN/
+
+# ==========================================
+# 5. FILE TEMPORANEI GENERALI
+# ==========================================
+*.bak
+*.tmp
+*.temp
+
+
+# ==========================================
+# FILE DI LOG E STORAGE DEL PROGETTO
+# ==========================================
+aseo/storage/
+*.json
+!package.json
+!package-lock.json
+
+# ==========================================
+# DOCUMENTAZIONE INTERNA
+# ==========================================
+aseo/adr/
+

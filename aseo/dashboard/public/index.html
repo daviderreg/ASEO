@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASEO | Autonomous Software Engineering Organization</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;600&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0a0a0b;
+            color: #e4e4e7;
+        }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .glass { 
+            background: rgba(23, 23, 26, 0.7); 
+            backdrop-filter: blur(12px); 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+        }
+        .event-card:hover { background: rgba(39, 39, 42, 0.8); }
+        #graph-container {
+            height: 600px;
+            background: radial-gradient(circle, #18181b 0%, #0a0a0b 100%);
+        }
+        .status-pill {
+            padding: 2px 8px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .state-new { background: #3f3f46; color: #f4f4f5; }
+        .state-active { background: #1e40af; color: #dbeafe; }
+        .state-completed { background: #166534; color: #dcfce7; }
+        .state-failed { background: #991b1b; color: #fee2e2; }
+    </style>
+</head>
+<body class="p-4 h-screen flex flex-col gap-4">
+    <!-- Top Bar -->
+    <header class="glass p-4 rounded-xl flex justify-between items-center">
+        <div class="flex items-center gap-3">
+            <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+            <h1 class="text-xl font-semibold tracking-tight">ASEO <span class="text-gray-500 font-light">Core Monitoring</span></h1>
+        </div>
+        <div class="flex gap-4 items-center">
+            <div class="flex flex-col items-end">
+                <span class="text-xs text-gray-500 uppercase font-bold">Current Goal</span>
+                <span id="current-goal-text" class="text-sm mono text-blue-400">No active goal</span>
+            </div>
+            <div class="h-8 w-px bg-gray-800"></div>
+            <button onclick="openGoalModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all">
+                Submit New Goal
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Grid -->
+    <main class="flex-1 grid grid-cols-12 gap-4 overflow-hidden">
+        
+        <!-- Left: Event Feed -->
+        <section class="col-span-3 glass rounded-xl flex flex-col overflow-hidden">
+            <div class="p-3 border-b border-white/10 flex justify-between items-center">
+                <h2 class="text-sm font-bold uppercase tracking-wider text-gray-400">Event Stream</h2>
+                <span id="event-count" class="text-xs mono bg-gray-800 px-2 py-1 rounded">0</span>
+            </div>
+            <div id="event-feed" class="flex-1 overflow-y-auto p-2 space-y-2 scrollbar-hide">
+                <!-- Events injected here -->
+                <div class="text-center text-gray-600 text-xs mt-10">Waiting for events...</div>
+            </div>
+        </section>
+
+        <!-- Center: Knowledge Graph -->
+        <section class="col-span-6 glass rounded-xl flex flex-col overflow-hidden">
+            <div class="p-3 border-b border-white/10 flex justify-between items-center">
+                <h2 class="text-sm font-bold uppercase tracking-wider text-gray-400">Knowledge Graph (Central Truth)</h2>
+                <div class="flex gap-2">
+                    <button onclick="refreshGraph()" class="text-xs bg-gray-800 hover:bg-gray-700 px-2 py-1 rounded transition-colors">Refresh</button>
+                </div>
+            </div>
+            <div id="graph-container" class="flex-1"></div>
+        </section>
+
+        <!-- Right: Agent Matrix -->
+        <section class="col-span-3 glass rounded-xl flex flex-col overflow-hidden">
+            <div class="p-3 border-b border-white/10">
+                <h2 class="text-sm font-bold uppercase tracking-wider text-gray-400">Agent Reputation</h2>
+            </div>
+            <div class="flex-1 overflow-y-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="text-xs text-gray-500 uppercase bg-white/5 sticky top-0">
+                        <tr>
+                            <th class="p-3">Agent</th>
+                            <th class="p-3 text-right">Reputation</th>
+                        </tr>
+                    </thead>
+                    <tbody id="agent-table-body">
+                        <!-- Agents injected here -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <!-- Bottom Panel: Tasks & ADRs -->
+    <footer class="h-64 glass rounded-xl flex flex-col overflow-hidden">
+        <div class="flex border-b border-white/10">
+            <button onclick="switchTab('tasks')" id="tab-tasks" class="px-6 py-3 text-sm font-medium border-b-2 border-blue-500 text-blue-400 bg-white/5">Active Tasks</button>
+            <button onclick="switchTab('adrs')" id="tab-adrs" class="px-6 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-300">ADRs</button>
+            <button onclick="switchTab('artifacts')" id="tab-artifacts" class="px-6 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-300">Artifact Explorer</button>
+        </div>
+        <div id="panel-content" class="flex-1 overflow-y-auto p-4">
+            <!-- Tab content injected here -->
+        </div>
+    </footer>
+
+    <!-- Goal Modal -->
+    <div id="goal-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
+        <div class="glass w-full max-w-lg p-6 rounded-2xl shadow-2xl border-white/20">
+            <h3 class="text-xl font-bold mb-4">Submit Engineering Goal</h3>
+            <p class="text-sm text-gray-400 mb-4">Define the high-level objective for the ASEO organization.</p>
+            <textarea id="goal-input" class="w-full h-32 bg-black/50 border border-white/10 rounded-lg p-3 text-sm mono focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="e.g. Implement a secure OAuth2 flow with JWT rotation..."></textarea>
+            <div class="flex justify-end gap-3 mt-6">
+                <button onclick="closeGoalModal()" class="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Cancel</button>
+                <button onclick="submitGoal()" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg text-sm font-medium">Initialize Goal</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Artifact Viewer Modal -->
+    <div id="viewer-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
+        <div class="glass w-full max-w-4xl h-[80vh] p-6 rounded-2xl shadow-2xl border-white/20 flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="viewer-title" class="text-xl font-bold text-blue-400">Artifact Viewer</h3>
+                <button onclick="closeViewer()" class="text-gray-500 hover:text-white text-2xl">&times;</button>
+            </div>
+            <div id="viewer-content" class="flex-1 overflow-auto bg-black/50 rounded-lg p-4 mono text-xs whitespace-pre-wrap border border-white/10">
+                <!-- Content injected here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let state = {
+            events: [],
+            agents: {},
+            tasks: [],
+            adrs: [],
+            activeTab: 'tasks'
+        };
+
+        let network = null;
+
+        async function init() {
+            await refreshAll();
+            setInterval(refreshAll, 3000); // Real-time poll every 3s
+            renderTasks();
+        }
+
+        async function refreshAll() {
+            try {
+                // 1. Events
+                const evRes = await fetch('/api/events');
+                const evData = await evRes.json();
+                state.events = evData;
+                renderEvents();
+
+                // 2. Graph
+                const grRes = await fetch('/api/graph');
+                const grData = await grRes.json();
+                updateGraph(grData);
+
+                // 3. Agents
+                const agRes = await fetch('/api/agents');
+                const agData = await agRes.json();
+                state.agents = agData;
+                renderAgents();
+
+                // 4. Tasks
+                const tRes = await fetch('/api/tasks');
+                state.tasks = await tRes.json();
+                if(state.activeTab === 'tasks') renderTasks();
+
+                // 5. ADRs
+                const adRes = await fetch('/api/adrs');
+                state.adrs = await adRes.json();
+                if(state.activeTab === 'adrs') renderADRs();
+
+                // Update Top Bar Goal
+                try {
+                    const activeGoalRes = await fetch('/api/active-goal');
+                    const activeGoalData = await activeGoalRes.json();
+                    document.getElementById('current-goal-text').innerText = activeGoalData.goal;
+                } catch (e) {
+                    console.error("Error fetching active goal:", e);
+                }
+            } catch (e) {
+                console.error("Polling error:", e);
+            }
+        }
+
+        function renderEvents() {
+            const container = document.getElementById('event-feed');
+            document.getElementById('event-count').innerText = state.events.length;
+            
+            container.innerHTML = state.events.slice().reverse().map(ev => `
+                <div class="event-card p-3 rounded-lg border border-white/5 bg-white/5 transition-all cursor-help" title="${ev.timestamp}">
+                    <div class="flex justify-between items-start mb-1">
+                        <span class="text-[10px] font-bold uppercase text-blue-400 mono">${ev.type}</span>
+                        <span class="text-[10px] text-gray-500 mono">${ev.source_agent}</span>
+                    </div>
+                    <div class="text-xs text-gray-300 line-clamp-2">${typeof ev.payload === 'string' ? ev.payload : JSON.stringify(ev.payload)}</div>
+                </div>
+            `).join('');
+        }
+
+        function renderAgents() {
+            const body = document.getElementById('agent-table-body');
+            body.innerHTML = Object.entries(state.agents).map(([name, score]) => `
+                <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
+                    <td class="p-3 font-medium">${name}</td>
+                    <td class="p-3 text-right mono text-blue-400 font-bold">${score.toFixed(2)}</td>
+                </tr>
+            `).join('');
+        }
+
+        function updateGraph(data) {
+            const container = document.getElementById('graph-container');
+            if (!network) {
+                const options = {
+                    nodes: {
+                        shape: 'dot',
+                        size: 16,
+                        font: { color: '#e4e4e7', size: 12, face: 'Inter' },
+                        color: { background: '#1e1e22', border: '#3f3f46', highlight: '#3b82f6' }
+                    },
+                    edges: {
+                        width: 2,
+                        color: { color: '#3f3f46', highlight: '#3b82f6' },
+                        font: { align: 'middle', color: '#71717a', size: 10 },
+                        arrows: { to: { enabled: true, scaleSize: 0.5 } }
+                    },
+                    physics: {
+                        enabled: true,
+                        barnesHut: { gravitationalConstant: -2000, springLength: 150 },
+                        stabilization: { iterations: 100 }
+                    }
+                };
+                network = new vis.Network(container, data, options);
+            } else {
+                network.setNodes(data.nodes);
+                network.setEdges(data.edges);
+            }
+        }
+
+        function renderTasks() {
+            const container = document.getElementById('panel-content');
+            if (state.tasks.length === 0) {
+                container.innerHTML = `<div class="text-center text-gray-600 mt-10 text-sm">No active tasks found.</div>`;
+                return;
+            }
+            container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                ${state.tasks.map(t => `
+                    <div class="p-4 rounded-xl bg-white/5 border border-white/10 flex flex-col gap-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs mono text-gray-500">ID: ${t.id}</span>
+                            <span class="status-pill ${getStateClass(t.state)}">${t.state}</span>
+                        </div>
+                        <div class="text-sm font-semibold">${t.title || 'Unnamed Task'}</div>
+                        <div class="text-xs text-gray-400 line-clamp-2">${t.description || 'No description available.'}</div>
+                    </div>
+                `).join('')}
+            </div>`;
+        }
+
+    function renderADRs() {
+        const container = document.getElementById('panel-content');
+        if (state.adrs.length === 0) {
+            container.innerHTML = `<div class="text-center text-gray-600 mt-10 text-sm">No ADRs generated yet.</div>`;
+            return;
+        }
+        container.innerHTML = `<div class="space-y-3">
+            ${state.adrs.map(adr => `
+                <div class="p-3 rounded-lg bg-white/5 border border-white/10 flex justify-between items-center hover:border-blue-500/50 transition-all cursor-pointer" onclick="viewArtifact('adr', '${adr.id}')">
+                    <div>
+                        <div class="text-sm font-bold text-blue-300">${adr.title}</div>
+                        <div class="text-xs text-gray-500">Decision: ${adr.decision}</div>
+                    </div>
+                    <div class="text-xs mono text-gray-600">${adr.timestamp}</div>
+                </div>
+            `).join('')}
+        </div>`;
+    }
+
+        function getStateClass(state) {
+            if (state === 'MERGED') return 'state-completed';
+            if (state === 'FAILED') return 'state-failed';
+            if (['NEW', 'ANALYZED'].includes(state)) return 'state-new';
+            return 'state-active';
+        }
+
+        function switchTab(tab) {
+            state.activeTab = tab;
+            ['tasks', 'adrs', 'artifacts'].forEach(t => {
+                const el = document.getElementById(`tab-${t}`);
+                if (t === tab) {
+                    el.classList.add('border-blue-500', 'text-blue-400', 'bg-white/5');
+                    el.classList.remove('border-transparent', 'text-gray-500');
+                } else {
+                    el.classList.remove('border-blue-500', 'text-blue-400', 'bg-white/5');
+                    el.classList.add('border-transparent', 'text-gray-500');
+                }
+            });
+
+            if (tab === 'tasks') renderTasks();
+            if (tab === 'adrs') renderADRs();
+            if (tab === 'artifacts') renderArtifacts();
+        }
+
+        async function renderArtifacts() {
+            const container = document.getElementById('panel-content');
+            container.innerHTML = `<div class="flex gap-4 overflow-x-auto pb-2">
+                ${['events', 'graph', 'tasks', 'reviews', 'security', 'performance', 'docs', 'adr', 'logs'].map(cat => `
+                    <button onclick="loadArtifactCategory('${cat}')" class="px-3 py-1 text-xs bg-white/5 border border-white/10 rounded hover:bg-white/10 transition-colors">${cat.toUpperCase()}</button>
+                `).join('')}
+            </div>
+            <div id="artifact-list" class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div class="text-gray-600 text-xs">Select a category to browse artifacts...</div>
+            </div>`;
+        }
+
+    async function loadArtifactCategory(category) {
+        const list = document.getElementById('artifact-list');
+        list.innerHTML = `<div class="col-span-full text-center py-4 text-xs text-gray-500 animate-pulse">Fetching ${category}...</div>`;
+        const res = await fetch(`/api/artifacts/${category}`);
+        const data = await res.json();
+        list.innerHTML = data.map(item => {
+            const id = item.id || item.name || (typeof item === 'string' ? item : 'unknown');
+            return `
+                <div class="p-2 rounded bg-black/30 border border-white/5 text-xs mono flex justify-between items-center">
+                    <span>${item.name || id}</span>
+                    <button onclick="viewArtifact('${category}', '${id}')" class="text-blue-500 hover:underline">View</button>
+                </div>
+            `;
+        }).join('') || `<div class="col-span-full text-center py-4 text-xs text-gray-600">No artifacts in this category.</div>`;
+    }
+
+    async function viewArtifact(category, id) {
+        const modal = document.getElementById('viewer-modal');
+        const contentEl = document.getElementById('viewer-content');
+        const titleEl = document.getElementById('viewer-title');
+        
+        titleEl.innerText = `Artifact Viewer: ${category}/${id}`;
+        contentEl.innerText = 'Loading...';
+        modal.classList.remove('hidden');
+
+        try {
+            const res = await fetch(`/api/artifacts/${category}/${id}`);
+            if (!res.ok) throw new Error('Artifact not found');
+            const data = await res.json();
+            contentEl.innerText = JSON.stringify(data, null, 2);
+        } catch (e) {
+            contentEl.innerText = `Error loading artifact: ${e.message}`;
+        }
+    }
+
+    function closeViewer() {
+        document.getElementById('viewer-modal').classList.add('hidden');
+    }
+
+        function openGoalModal() { document.getElementById('goal-modal').classList.remove('hidden'); }
+        function closeGoalModal() { document.getElementById('goal-modal').classList.add('hidden'); }
+
+        async function submitGoal() {
+            const goal = document.getElementById('goal-input').value;
+            if (!goal) return;
+            
+            try {
+                const res = await fetch('/api/goal', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ goal })
+                });
+                if (res.ok) {
+                    closeGoalModal();
+                    document.getElementById('goal-input').value = '';
+                    await refreshAll();
+                }
+            } catch (e) {
+                alert("Error submitting goal");
+            }
+        }
+
+        function refreshGraph() { refreshAll(); }
+
+        init();
+    </script>
+</body>
+</html>
